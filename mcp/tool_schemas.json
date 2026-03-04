@@ -1,0 +1,130 @@
+{
+  "tools": [
+    {
+      "name": "generate_briefing",
+      "displayName": "Generate Review Briefing",
+      "description": "Create a formatted review briefing document for client meetings. Supports multiple review types and custom sections. Returns markdown ready for presentation or printing.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "Client identifier"
+          },
+          "review_type": {
+            "type": "string",
+            "enum": ["quarterly", "annual", "comprehensive", "performance", "risk", "planning"],
+            "description": "Type of review: quarterly (recent activity), annual (YoY), comprehensive (full analysis), performance (vs benchmarks), risk (risk assessment), planning (strategic)"
+          },
+          "custom_sections": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "tax_planning",
+                "estate_goals",
+                "charitable_giving",
+                "education_funding",
+                "retirement_readiness",
+                "risk_tolerance",
+                "alternative_investments",
+                "market_outlook"
+              ]
+            },
+            "description": "Optional: additional custom sections to include in briefing"
+          },
+          "tenant_id": {
+            "type": "string",
+            "description": "Tenant identifier"
+          }
+        },
+        "required": ["client_id", "review_type", "tenant_id"]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "get_client_summary",
+      "displayName": "Get Client Summary",
+      "description": "Retrieve comprehensive client overview including profile, assets under management, performance metrics, top holdings, and stated goals/constraints.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "Client identifier"
+          },
+          "tenant_id": {
+            "type": "string",
+            "description": "Tenant identifier"
+          }
+        },
+        "required": ["client_id", "tenant_id"]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "search_notes",
+      "displayName": "Search Notes & Meeting Records",
+      "description": "Search advisor notes and meeting records using natural language. Find discussions, decisions, and action items from past interactions. Supports filtering by date, client, and note type.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Natural language search query (e.g., 'tax loss harvesting discussion' or 'Roth conversion planning')"
+          },
+          "client_id": {
+            "type": "string",
+            "description": "Optional: filter to notes about specific client"
+          },
+          "date_range": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "Start date (YYYY-MM-DD)"
+              },
+              "end": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "End date (YYYY-MM-DD)"
+              }
+            },
+            "description": "Optional: filter by date range"
+          },
+          "note_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["meeting", "phone_call", "email", "internal_note", "action_item"]
+            },
+            "description": "Optional: filter by note type"
+          },
+          "tenant_id": {
+            "type": "string",
+            "description": "Tenant identifier"
+          },
+          "top_k": {
+            "type": "integer",
+            "description": "Number of results to return (default: 10, max: 50)",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": ["query", "tenant_id"]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true
+      }
+    }
+  ]
+}

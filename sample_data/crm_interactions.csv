@@ -1,0 +1,34 @@
+ContactName,InteractionType,InteractionDate,Direction,InitiatedBy,Summary,ResponseTimeHours
+Robert Henderson,meeting,2025-12-03,outbound,Michelle Torres,Semi-annual review,
+Margaret Henderson,meeting,2025-12-03,outbound,Michelle Torres,Semi-annual review,
+Robert Henderson,email,2026-02-15,inbound,client,Question about rollover status,4.0
+Margaret Henderson,email,2026-02-10,inbound,client,Question about retirement planning,2.5
+Robert Henderson,email,2026-02-20,outbound,Sarah Kim,Rollover confirmation,
+Margaret Henderson,email,2026-02-28,outbound,Michelle Torres,Review scheduling,
+Robert Henderson,phone,2026-01-10,inbound,client,Called about mother's estate,
+James Williams,meeting,2025-11-15,outbound,David Park,Q4 2025 review,
+James Williams,email,2025-12-20,outbound,David Park,Charitable giving strategy,
+Susan Williams,email,2026-02-18,inbound,client,Question about foundation grants,6.0
+James Williams,phone,2026-01-22,outbound,David Park,Executive compensation discussion,
+Susan Williams,document_signed,2026-02-25,outbound,David Park,Updated IPS signed,
+David Kim,meeting,2025-10-15,outbound,Michelle Torres,Q3 2025 review,
+David Kim,email,2025-11-28,outbound,Michelle Torres,Year-end tax planning,
+Patricia Kim,email,2026-02-05,inbound,client,Questions about estate plan,8.0
+David Kim,phone,2026-02-12,inbound,client,Market volatility concerns,
+Patricia Kim,portal_login,2026-02-20,inbound,client,Viewed quarterly statements,
+David Chen,meeting,2024-10-10,outbound,Michelle Torres,Annual review 2024,
+David Chen,email,2025-01-15,outbound,Michelle Torres,Check-in email,
+David Chen,email,2025-02-20,outbound,Sarah Kim,Review scheduling attempt,
+David Chen,email,2025-03-10,outbound,Michelle Torres,Second scheduling attempt,
+David Chen,email,2025-04-05,outbound,Michelle Torres,Third scheduling attempt,
+James Thompson,meeting,2025-07-20,outbound,David Park,H1 2025 review,
+James Thompson,email,2025-10-15,outbound,David Park,529 plan updates,
+Jennifer Thompson,email,2026-01-10,inbound,client,Sent college funding spreadsheet,3.0
+Michael Thompson,portal_login,2026-02-10,inbound,client,Viewed 529 statements,
+James Thompson,phone,2026-02-28,outbound,David Park,Spring review scheduling,
+Angela Johnson,meeting,2025-12-10,outbound,David Park,Q4 2025 review,
+Angela Johnson,email,2026-01-20,outbound,David Park,Practice succession planning,
+Mark Johnson,email,2026-02-01,inbound,client,Estate plan review questions,5.0
+Angela Johnson,document_signed,2026-02-15,outbound,David Park,Updated beneficiary forms,
+Mark Johnson,portal_login,2026-02-22,inbound,client,Reviewed retirement projections,
+Angela Johnson,phone,2026-02-28,outbound,David Park,Engagement check-in,

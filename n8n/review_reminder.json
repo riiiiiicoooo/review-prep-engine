@@ -1,0 +1,402 @@
+{
+  "name": "Weekly Review Reminder & Briefing Status Check",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "type": "hours",
+              "value": 168
+            }
+          ],
+          "dayOfWeek": {
+            "monday": true
+          },
+          "hour": 8,
+          "minute": 0
+        }
+      },
+      "name": "Weekly Trigger (Monday 8 AM)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "id": "w1a1b2c3",
+      "disabled": false,
+      "note": "Triggers every Monday at 8 AM in organization timezone"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('SUPABASE_URL') }}/rest/v1/households?next_review_date=gte.{{ new Date().toISOString().split('T')[0] }}&next_review_date=lte.{{ new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0] }}&assigned_advisor_id=not.is.null&select=id,household_name,next_review_date,assigned_advisor_id",
+        "authentication": "header",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $getEnv('SUPABASE_ANON_KEY') }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $getEnv('SUPABASE_ANON_KEY') }}"
+            }
+          ]
+        }
+      },
+      "name": "Query Upcoming Reviews (This Week)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        500,
+        300
+      ],
+      "id": "w1a1b2c4",
+      "disabled": false,
+      "note": "Fetch households with reviews scheduled for next 7 days"
+    },
+    {
+      "parameters": {
+        "items": "={{ $('Query Upcoming Reviews (This Week)').json.body || [] }}",
+        "mode": "each",
+        "dataPropertyName": "household"
+      },
+      "name": "Loop Upcoming Reviews",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        750,
+        300
+      ],
+      "id": "w1a1b2c5",
+      "disabled": false,
+      "note": "Process each upcoming review"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('SUPABASE_URL') }}/rest/v1/briefings?household_id=eq.{{ $item(0).household.id }}&order=created_at.desc&limit=1&select=id,created_at,advisor_email_sent",
+        "authentication": "header",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $getEnv('SUPABASE_ANON_KEY') }}"
+            }
+          ]
+        }
+      },
+      "name": "Check For Existing Briefing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1000,
+        300
+      ],
+      "id": "w1a1b2c6",
+      "disabled": false,
+      "note": "Query latest briefing for this household"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "any": [
+            {
+              "value1": "={{ $('Check For Existing Briefing').json.body.length === 0 || !$('Check For Existing Briefing').json.body[0].advisor_email_sent }}",
+              "operation": "equals",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "If No Briefing or Not Sent",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        300
+      ],
+      "id": "w1a1b2c7",
+      "disabled": false,
+      "note": "Check if briefing missing or reminder not sent yet"
+    },
+    {
+      "parameters": {
+        "url": "{{ $getEnv('TRIGGER_API_URL') || 'https://api.trigger.dev' }}/api/v1/runs",
+        "method": "POST",
+        "authentication": "header",
+        "sendHeaders": true,
+        "contentType": "application/json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $getEnv('TRIGGER_API_KEY') }}"
+            }
+          ]
+        },
+        "body": "={\n  \"idempotencyKey\": \"briefing-{{ $item(0).household.id }}-{{ Date.now() }}\",\n  \"job\": \"briefing_generation\",\n  \"payload\": {\n    \"household_id\": \"{{ $item(0).household.id }}\",\n    \"trigger_source\": \"review_reminder\",\n    \"force_regenerate\": {{ $('Check For Existing Briefing').json.body.length === 0 }}\n  }\n}"
+      },
+      "name": "Trigger Briefing Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1500,
+        200
+      ],
+      "id": "w1a1b2c8",
+      "disabled": false,
+      "note": "Submit async job if briefing missing or stale"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('SUPABASE_URL') }}/rest/v1/advisors?id=eq.{{ $item(0).household.assigned_advisor_id }}&select=id,email,first_name,timezone",
+        "authentication": "header",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $getEnv('SUPABASE_ANON_KEY') }}"
+            }
+          ]
+        }
+      },
+      "name": "Get Advisor Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1750,
+        300
+      ],
+      "id": "w1a1b2c9",
+      "disabled": false,
+      "note": "Fetch advisor email and timezone for personalized message"
+    },
+    {
+      "parameters": {
+        "fromEmail": "{{ $getEnv('SENDGRID_FROM_EMAIL') || 'noreply@reviewprepengine.com' }}",
+        "toEmail": "{{ $('Get Advisor Details').json.body[0].email }}",
+        "subject": "Weekly Review Reminder: {{ $('Loop Upcoming Reviews').json.body.length }} client(s) this week",
+        "templateId": "{{ $getEnv('SENDGRID_REVIEW_REMINDER_TEMPLATE_ID') || 'd-abc123' }}",
+        "dynamicData": "={\n  \"advisor_name\": \"{{ $('Get Advisor Details').json.body[0].first_name }}\",\n  \"review_count\": \"{{ $('Loop Upcoming Reviews').json.body.length }}\",\n  \"upcoming_reviews\": $('Loop Upcoming Reviews').json.body.map(item => ({\n    \"household_name\": item.household.household_name,\n    \"review_date\": item.household.next_review_date,\n    \"briefing_status\": $('Check For Existing Briefing').json.body.length > 0 && $('Check For Existing Briefing').json.body[0].advisor_email_sent ? 'Ready' : 'Generating...',\n    \"briefing_link\": `{{ $getEnv('APP_BASE_URL') }}/briefings/${item.household.id}`\n  }))\n}"
+      },
+      "name": "Send Review Reminder Email",
+      "type": "n8n-nodes-base.sendGrid",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        300
+      ],
+      "id": "w1a1b2c10",
+      "disabled": false,
+      "note": "Send templated reminder with list of upcoming reviews and prep status"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('SUPABASE_URL') }}/rest/v1/briefings",
+        "method": "PATCH",
+        "authentication": "header",
+        "sendHeaders": true,
+        "contentType": "application/json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $getEnv('SUPABASE_ANON_KEY') }}"
+            }
+          ]
+        },
+        "body": "={\n  \"advisor_email_sent\": true,\n  \"advisor_email_sent_at\": \"now()\"\n}",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "household_id",
+              "value": "eq.{{ $item(0).household.id }}"
+            }
+          ]
+        }
+      },
+      "name": "Mark Email Sent in Briefing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2250,
+        300
+      ],
+      "id": "w1a1b2c11",
+      "disabled": false,
+      "note": "Update briefing record to mark email sent"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('SUPABASE_URL') }}/rest/v1/sync_logs",
+        "method": "POST",
+        "authentication": "header",
+        "sendHeaders": true,
+        "contentType": "application/json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $getEnv('SUPABASE_ANON_KEY') }}"
+            }
+          ]
+        },
+        "body": "={\n  \"organization_id\": \"{{ $getEnv('ORG_ID') }}\",\n  \"sync_type\": \"review_reminder\",\n  \"status\": \"{{ $execution.errorData ? 'failed' : 'success' }}\",\n  \"records_processed\": \"{{ $('Query Upcoming Reviews (This Week)').json.body.length || 0 }}\",\n  \"error_message\": \"{{ $execution.errorData?.message }}\",\n  \"started_at\": \"{{ $execution.startTime }}\",\n  \"completed_at\": \"now()\",\n  \"metadata\": {\n    \"briefings_triggered\": \"{{ $('Trigger Briefing Generation').all().length }}\",\n    \"reminders_sent\": \"{{ $('Send Review Reminder Email').all().length }}\"\n  }\n}"
+      },
+      "name": "Log Reminder Workflow Completion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2500,
+        300
+      ],
+      "id": "w1a1b2c12",
+      "disabled": false,
+      "note": "Record workflow execution metrics"
+    },
+    {
+      "parameters": {
+        "fromEmail": "{{ $getEnv('SENDGRID_FROM_EMAIL') || 'noreply@reviewprepengine.com' }}",
+        "toEmail": "{{ $getEnv('OPS_EMAIL') || 'ops@company.com' }}",
+        "subject": "Workflow Error: Weekly Review Reminder Failed",
+        "htmlBody": "=<html><body><h2>Weekly Review Reminder Workflow Error</h2><p>Error: {{ $execution.errorData?.message }}</p><p>Time: {{ $execution.startTime }}</p></body></html>"
+      },
+      "name": "Send Error Alert (If Failed)",
+      "type": "n8n-nodes-base.sendGrid",
+      "typeVersion": 1,
+      "position": [
+        2500,
+        450
+      ],
+      "id": "w1a1b2c13",
+      "disabled": false,
+      "note": "Email ops team if workflow encounters error"
+    }
+  ],
+  "connections": {
+    "Weekly Trigger (Monday 8 AM)": {
+      "main": [
+        [
+          {
+            "node": "Query Upcoming Reviews (This Week)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Upcoming Reviews (This Week)": {
+      "main": [
+        [
+          {
+            "node": "Loop Upcoming Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Upcoming Reviews": {
+      "main": [
+        [
+          {
+            "node": "Check For Existing Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check For Existing Briefing": {
+      "main": [
+        [
+          {
+            "node": "If No Briefing or Not Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If No Briefing or Not Sent": {
+      "main": [
+        [
+          {
+            "node": "Trigger Briefing Generation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Advisor Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Briefing Generation": {
+      "main": [
+        [
+          {
+            "node": "Get Advisor Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Advisor Details": {
+      "main": [
+        [
+          {
+            "node": "Send Review Reminder Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Review Reminder Email": {
+      "main": [
+        [
+          {
+            "node": "Mark Email Sent in Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Email Sent in Briefing": {
+      "main": [
+        [
+          {
+            "node": "Log Reminder Workflow Completion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Reminder Workflow Completion": {
+      "main": [
+        [
+          {
+            "node": "Log Reminder Workflow Completion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "errorHandler": "Continue"
+  }
+}

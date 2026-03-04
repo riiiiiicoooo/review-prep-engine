@@ -1,0 +1,13 @@
+FirstName,LastName,DateOfBirth,Email,PhoneNumber,Employer,Occupation,IsRetired,RetirementDate,Relationship,Notes
+Robert,Henderson,1962-08-14,robert.henderson@email.com,555-0101,Henderson & Associates,Small business owner,N,,primary,Founder of consulting firm. Very engaged with planning.
+Margaret,Henderson,1964-11-02,margaret.henderson@email.com,555-0102,,Retired teacher,Y,2025-09-01,spouse,Recently retired after 28 years. Pension $3200/mo. Active in community.
+James,Williams,1955-03-22,james.williams@email.com,555-0201,Williams Manufacturing,Company president,N,,primary,Second home in Colorado. Interested in executive compensation planning.
+Susan,Williams,1958-07-15,susan.williams@email.com,555-0202,Nonprofit Director,Executive director,N,,spouse,Board member of community foundation. Philanthropic interests.
+David,Kim,1960-11-28,david.kim@email.com,555-0301,Tech Solutions Inc,CTO,N,,primary,Tech industry executive. Concerned about market volatility.
+Patricia,Kim,1963-02-14,patricia.kim@email.com,555-0302,,Consultant,N,,spouse,Works part-time as business consultant. Estate planning focus.
+David,Chen,1978-03-22,dchen@email.com,555-0401,TechCorp,Software engineer,N,,primary,Early retirement goal at 55. Limited engagement recently.
+James,Thompson,1970-09-10,jthompson@email.com,555-0501,State University,Professor,N,,primary,Academic. Concerned about college funding for son Michael.
+Jennifer,Thompson,1972-05-18,jthompson.jen@email.com,555-0502,,Teacher,N,,spouse,School teacher. Very organized with planning documents.
+Michael,Thompson,2008-01-15,,,,,N,,child,Currently in college at State University. 529 plan funding.
+Angela,Johnson,1960-12-05,angela.johnson@email.com,555-0601,Johnson Healthcare,Physician,N,,primary,Successful practice owner. Income management focus.
+Mark,Johnson,1962-06-20,mark.johnson@email.com,555-0602,Johnson Healthcare,Physician,N,,spouse,Joint practice with Angela. Estate planning concerns.

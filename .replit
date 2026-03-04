@@ -1,0 +1,20 @@
+entrypoint = "api/app.py"
+modules = ["python-3.11", "nodejs-20", "postgresql-15"]
+
+[nix]
+channel = "stable-24.05"
+
+[env]
+PYTHONUNBUFFERED = "1"
+NODE_ENV = "development"
+DATABASE_URL = "postgresql://user:password@localhost:5432/review_prep"
+SUPABASE_URL = "http://localhost:54321"
+SUPABASE_ANON_KEY = "dev-key"
+N8N_URL = "http://localhost:5678"
+SALESFORCE_CLIENT_ID = "local-dev"
+SALESFORCE_CLIENT_SECRET = "local-dev"
+TRIGGER_API_KEY = "local-dev"
+
+[deployment]
+build = ["npm install", "pip install -r requirements.txt", "supabase start"]
+run = ["python api/app.py"]

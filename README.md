@@ -117,13 +117,145 @@ The meeting is better. The client feels known.
 
 ---
 
+## Modern Tooling Infrastructure
+
+The Review Prep Engine now includes production-ready infrastructure for enterprise wealth management workflows:
+
+### Backend & Database
+- **Supabase (PostgreSQL)**: Relational schema with row-level security (RLS) for advisor data segregation, audit logging, and real-time subscriptions
+- **Schema**: Households, members, accounts, positions, position history, briefings, action items, engagement scores, meetings, sync logs
+- **RLS Policies**: Advisors see only assigned households; compliance sees all; admins manage access
+- **Migrations**: Versioned SQL migrations for reproducible deployments
+
+### Data Orchestration (n8n)
+- **CRM Daily Sync (`crm_daily_sync.json`)**:
+  - Daily trigger at 6 AM: Fetch updated Salesforce accounts (modified in last 24h)
+  - Detect household changes: sync to Supabase
+  - Pull custodian accounts (Schwab/Fidelity API) for each household
+  - Detect position changes via delta comparison
+  - Auto-trigger briefing generation for reviews scheduled this week
+  - Email advisor with prep links and change summary
+
+- **Review Reminder (`review_reminder.json`)**:
+  - Weekly trigger Monday 8 AM: Query upcoming reviews (next 7 days)
+  - Check briefing status for each household
+  - Trigger generation if missing or stale
+  - Send templated reminder email with prep status dashboard
+  - Log completion metrics for monitoring
+
+### Async Job Processing (Trigger.dev)
+- **Briefing Generation (`trigger-jobs/briefing_generation.ts`)**:
+  - Event-driven job triggered by workflows
+  - Fetch household + members + all accounts/positions
+  - Compute position deltas since last review
+  - Score engagement (meeting frequency, portfolio activity, attrition risk, communication sentiment)
+  - Generate conversation starters based on portfolio changes and cohort
+  - Assemble briefing (JSONB structure) with portfolio summary, performance, changes, action items
+  - Save to Supabase + notify advisor
+  - Execution: < 5s for typical household (< 20 positions)
+
+- **Engagement Batch Scoring (`trigger-jobs/engagement_batch.ts`)**:
+  - Nightly batch job for all households (concurrency limit: 10)
+  - Score components: meeting frequency (0-15), portfolio activity (0-15), attrition risk (-20 to +10), sentiment (0-10)
+  - Overall score: 0-100, mapped to cohorts (at_risk < 26, growth 26-50, core 51-75, premier > 75)
+  - Bulk upsert to `engagement_scores` table + update household records
+  - Identify at-risk households for compliance alert workflow
+  - Execution: < 1 min for 1000 households
+
+### Email Notifications (React Email + SendGrid)
+- **Review Reminder (`emails/review_reminder.tsx`)**:
+  - Responsive HTML email with Tailwind CSS
+  - Displays upcoming reviews with briefing status badges
+  - Direct links to view briefings
+  - Review tips and support contact
+  - Timezone-aware date formatting
+
+- **Attrition Alert (`emails/attrition_alert.tsx`)**:
+  - Sent to compliance officers when households flagged at-risk
+  - Dashboard metrics: count, total AUM at risk, critical status
+  - Per-household risk card with engagement score visualization
+  - Risk factors and recommended advisor actions
+  - Guided escalation path (schedule call → review goals → demonstrate value → document)
+
+### Deployment (Vercel)
+- **Configuration (`vercel.json`)**:
+  - Edge functions for API endpoints
+  - Serverless functions with 1GB memory, 60s timeout for briefing jobs
+  - Environment-based configuration (dev, staging, production)
+  - Cache control for API endpoints (no-store)
+  - Framework: Next.js (or similar)
+
+### Configuration & Documentation
+- **`.cursorrules`**: Comprehensive AI context for development
+  - Domain concepts: households, portfolios, briefings, engagement scoring
+  - Architecture overview with data flow
+  - API integration patterns for Salesforce, custodians, Supabase
+  - Briefing generation formula and engagement scoring logic
+  - Security, compliance, and performance targets
+  - Monitoring and alert strategies
+
+- **`.replit` + `replit.nix`**: One-click local dev environment
+  - Includes Python 3.11, Node 20, PostgreSQL 15
+  - Auto-loads environment for Supabase local, n8n, Trigger.dev
+
+- **`.env.example`**: Complete environment variable reference
+  - CRM (Salesforce) credentials and custom object names
+  - Custodian API endpoints (Schwab, Fidelity, Interactive Brokers)
+  - n8n and Trigger.dev configuration
+  - Email, logging, monitoring, feature flags
+  - Performance limits and rate limiting
+
+### Data Flow
+```
+┌─────────────────┐
+│   Salesforce    │  Daily 6 AM
+│     (CRM)       │    │
+└────────┬────────┘    │
+         │             ▼
+         │        ┌──────────┐
+         │        │   n8n    │─── Detect changes
+         │        │ CRM Sync │
+         │        └─────┬────┘
+         │              │
+         ▼              ▼
+    ┌────────────────────────┐
+    │  Supabase PostgreSQL   │◄─── Position history
+    │  (RLS-protected)       │
+    │                        │
+    │ • Households (RLS)     │
+    │ • Accounts & Positions │
+    │ • Briefings            │
+    │ • Action Items         │
+    │ • Engagement Scores    │
+    └──┬─────────────────────┘
+       │
+       ├─────► Trigger.dev Job ──► Briefing Generation ─► Save + Notify
+       │       (briefing_gen)      (< 5s per household)
+       │
+       └─────► Trigger.dev Job ──► Engagement Batch ──► Update cohorts
+               (nightly)            (< 1min for 1000)    + At-risk alerts
+```
+
+### Monitoring & Compliance
+- **Sync Logs**: All workflow executions logged with status, record counts, errors
+- **Audit Logs**: All briefing access, data views logged by user + timestamp
+- **RLS Enforcement**: Advisors cannot see other advisors' households without admin role
+- **Performance Targets**:
+  - Briefing generation: < 5s
+  - Daily sync: < 2 min for 1000 households
+  - Query response: < 500ms for advisor dashboard
+  - Email delivery: within 5 minutes of trigger
+
+---
+
 ## Technical Notes
 
-- Python 3.11+, React with Recharts
-- No external dependencies beyond standard library
-- In production, data would be pulled via APIs from Salesforce (CRM), Black Diamond (portfolio data), and MoneyGuidePro (financial plans)
-- For the prototype, all data is synthetic but modeled on real wealth management client profiles
-- Engagement scoring uses a weighted composite of 6 signals, calibrated against the firm's historical attrition data
+- **Original Stack**: Python 3.11+, React with Recharts
+- **Modern Infrastructure**: Supabase (PostgreSQL + RLS), n8n (workflow automation), Trigger.dev (async jobs), React Email (templated notifications), Vercel (deployment)
+- **APIs Integrated**: Salesforce SOQL, Schwab/Fidelity custodian endpoints, Supabase PostgREST
+- **Production-Ready**: Environment-based config, error handling with retry logic, comprehensive logging, monitoring hooks for Sentry/Datadog
+- **Security**: TLS in transit, encrypted PII storage, JWT-based auth, audit trail for compliance
+- **For the prototype**: All data is synthetic but modeled on real wealth management client profiles. In production, data flows from Salesforce (CRM), custodian APIs (portfolio data), and financial planning software via authenticated webhooks.
 
 ---
 

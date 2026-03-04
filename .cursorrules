@@ -1,0 +1,175 @@
+# Review Prep Engine - Cursor Context Rules
+
+## Project Overview
+Building a modern wealth management client review preparation system with:
+- Automated briefing generation from CRM, custodial, and planning data
+- Engagement scoring and cohort analysis
+- n8n workflows for daily sync and weekly reminders
+- Trigger.dev jobs for async processing
+- React Email templates for notifications
+- Supabase for relational data and RLS policies
+
+## Core Domain Concepts
+
+### Households
+- Top-level entity representing client relationship
+- Contains multiple members (spouse, dependents, POAs)
+- Track engagement metrics, historical performance, review preferences
+- Has assigned advisor(s)
+
+### Portfolios & Positions
+- Household may have multiple accounts across custodians (Schwab, Fidelity, etc.)
+- Each account has positions (equities, bonds, funds, alternatives)
+- Track cost basis, performance, contribution history
+- Compute deltas from last review to identify changes
+
+### Briefings
+- Generated documents created before client meetings
+- Contain: household summary, portfolio overview, performance analysis, action items
+- Track creation time, last modified, advisor email sent timestamps
+- Historical versions maintained for review continuity
+
+### Action Items
+- Tasks identified during reviews or ongoing engagement
+- Status tracking: pending, in_progress, completed, deferred
+- Follow-up dates, assignee, client communication status
+- Link to specific review or engagement moment
+
+### Engagement Scoring
+- Historical scoring for households over time
+- Factors: activity frequency, meeting attendance, portfolio changes, communication
+- Cohort classification: premier, core, growth, at_risk
+- Predictive indicators for attrition risk
+
+### Meeting History
+- Record of all client interactions
+- Meeting notes, attendees, agenda items covered
+- Link to generated briefings and outcomes
+
+## Technical Architecture
+
+### Data Layer (Supabase)
+- PostgreSQL with Row Level Security (RLS)
+- Advisors: see only assigned households
+- Compliance officers: see all households
+- Admins: full management access
+- Real-time subscriptions for briefing status updates
+
+### Integration Layer (n8n)
+- CRM sync: Salesforce API → local data
+- Custodial sync: Direct API or file import from Schwab, Fidelity, etc.
+- Change detection: Compare current vs. last sync to trigger workflows
+- Webhook triggers for async job submission
+
+### Processing Layer (Trigger.dev)
+- Async background jobs for heavy computation
+- Briefing generation: data pull → delta calc → engagement score → content assembly
+- Batch engagement scoring: nightly job for all households
+- Error handling with retry logic and alerts
+
+### Notification Layer (React Email)
+- Review reminders with upcoming schedule and prep status
+- Attrition alerts with engagement metrics and recommendations
+- Briefing ready notifications with deep links
+
+### Deployment (Vercel)
+- Edge functions for API endpoints
+- Serverless functions for webhook receivers
+- Environment-based configuration
+
+## Coding Standards
+
+### SQL (Supabase)
+- Use snake_case for columns and tables
+- Implement RLS policies at table creation
+- Add created_at, updated_at timestamps to all tables
+- Foreign key constraints with CASCADE/RESTRICT as appropriate
+- Realistic engagement scoring thresholds: 0-100 scale
+
+### TypeScript (Trigger.dev, n8n)
+- Strong typing for all Salesforce API responses
+- Error handling with logged context
+- Pagination for API responses (Salesforce limit 2000 records/request)
+- Batch processing in chunks of 100-200 records
+- Exponential backoff for rate limiting
+
+### React Email
+- Use Tailwind CSS for styling
+- Responsive design for mobile/desktop
+- Link to verification tokens for unsubscribe
+- Include advisor contact info and timezone-aware scheduling
+
+### n8n Workflows
+- Use HTTP nodes for API calls with timeout (30s)
+- Conditional nodes for change detection logic
+- Loop nodes for processing arrays of records
+- Error handling with email notifications to ops
+- Document all API field mappings in node descriptions
+
+## API Integration Patterns
+
+### Salesforce
+- Use OAuth2 with refresh token strategy
+- Standard objects: Account (household), Contact (member), Opportunity (engagement)
+- Custom objects: Portfolio__c, Review__c, BriefingLog__c
+- Batch query via SOQL: SELECT ... FROM Account WHERE LastModifiedDate > :lastSync
+- Field mappings: Account.Id → household.crm_id, Account.Phone → household.phone
+
+### Custodial APIs (Schwab example)
+- Use API key + OAuth for authentication
+- Get accounts: /accounts (paginated)
+- Get positions: /accounts/{accountId}/holdings
+- Get transactions: /accounts/{accountId}/transactions?since=date
+- Compute account-level deltas: new positions, closed positions, quantity changes
+
+### Supabase (TypeScript)
+- Use PostgREST for CRUD operations
+- Row-level security via JWT token with user_id claim
+- Real-time subscriptions for UI updates
+- Raw SQL for complex analytical queries
+- Connection pooling for batch operations
+
+## Briefing Generation Logic
+1. Query household + all family members from Supabase
+2. Pull custodial holdings for all accounts
+3. Calculate deltas: compare previous_review_date positions vs. current
+4. Score engagement: last_meeting_date, activity_frequency, communication_sentiment
+5. Generate conversation starters based on changes + score + cohort
+6. Assemble briefing: household intro, portfolio summary, position changes, action items
+7. Save to storage + Supabase (briefings table)
+8. Send email to advisor with links
+
+## Engagement Scoring Formula
+- Base: 50 points
+- Meeting frequency (last 90 days): +15 max
+- Portfolio activity: +15 max (rebalance, new positions)
+- Attrition risk: -20 to +10 (based on communication gaps, market performance)
+- NPS/sentiment from notes: +10 max
+- Result: Cohort assignment (0-25: at_risk, 26-50: growth, 51-75: core, 76-100: premier)
+
+## Security & Compliance
+- All data in transit: TLS 1.2+
+- Credentials: environment variables, never hardcoded
+- Audit logging: all briefing access logged with user + timestamp
+- PII: encrypt SSN, DOB in transit
+- Segregation: advisor data only accessible via assigned household RLS
+
+## Testing & Debugging
+- Use n8n test mode to validate API calls without triggering workflows
+- Trigger.dev logs available in dashboard; use structured logging
+- Supabase local dev: `supabase start` with local PostgreSQL
+- Mock Salesforce/custodial APIs: use json-server or mock HTTP endpoints
+- End-to-end: trigger sync, verify briefing generation, confirm email delivery
+
+## Performance Targets
+- Briefing generation: < 5s for typical household (< 20 positions)
+- Daily sync: < 2 min for 1000 households
+- Engagement batch: < 1 min for 1000 households
+- Query response: < 500ms for advisor dashboard
+- Email delivery: within 5 minutes of trigger
+
+## Monitoring & Alerts
+- n8n workflow failures: email ops team with error context
+- Trigger.dev job failures: log to error tracking (Sentry optional)
+- Supabase performance: monitor slow queries (> 1s)
+- Email delivery: track open rates, link clicks via React Email

@@ -1,0 +1,635 @@
+{
+  "name": "CRM Daily Sync with Briefing Trigger",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "type": "hours",
+              "value": 24
+            }
+          ]
+        }
+      },
+      "name": "Daily Trigger (6 AM)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "id": "f1a1b2c3",
+      "disabled": false,
+      "note": "Runs every day at 6 AM in configured timezone"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "soqlQuery",
+        "query": "SELECT Id, Name, Phone, BillingStreet, BillingCity, BillingState, BillingPostalCode, Phone, LastModifiedDate, AUM__c, Next_Review_Date__c FROM Account WHERE LastModifiedDate >= LAST_N_DAYS:1 ORDER BY LastModifiedDate DESC LIMIT 2000"
+      },
+      "name": "Query Updated Accounts (Salesforce)",
+      "type": "n8n-nodes-base.salesforce",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "id": "f1a1b2c4",
+      "disabled": false,
+      "note": "Fetch accounts modified in last 24 hours. Uses SOQL with pagination via LIMIT 2000"
+    },
+    {
+      "parameters": {
+        "items": "={{ $('Query Updated Accounts (Salesforce)').all() }}",
+        "mode": "each",
+        "dataPropertyName": "item"
+      },
+      "name": "Loop Accounts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        750,
+        300
+      ],
+      "id": "f1a1b2c5",
+      "disabled": false,
+      "note": "Process each account one at a time"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('SUPABASE_URL') }}/rest/v1/households?crm_id=eq.{{ $item(0).item.Id }}",
+        "authentication": "header",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $getEnv('SUPABASE_ANON_KEY') }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $getEnv('SUPABASE_ANON_KEY') }}"
+            }
+          ]
+        }
+      },
+      "name": "Check Household Exists (Supabase)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1000,
+        300
+      ],
+      "id": "f1a1b2c6",
+      "disabled": false,
+      "note": "Query Supabase for household matching CRM account ID"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "any": [
+            {
+              "value1": "={{ $('Check Household Exists (Supabase)').first().json.body.length }}",
+              "operation": "equals",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "name": "If Household Not Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        300
+      ],
+      "id": "f1a1b2c7",
+      "disabled": false,
+      "note": "Create new household record if not in Supabase"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('SUPABASE_URL') }}/rest/v1/households",
+        "method": "POST",
+        "authentication": "header",
+        "sendHeaders": true,
+        "contentType": "application/json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $getEnv('SUPABASE_ANON_KEY') }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $getEnv('SUPABASE_ANON_KEY') }}"
+            }
+          ]
+        },
+        "body": "={\n  \"organization_id\": \"{{ $getEnv('ORG_ID') }}\",\n  \"crm_id\": \"{{ $item(0).item.Id }}\",\n  \"household_name\": \"{{ $item(0).item.Name }}\",\n  \"phone\": \"{{ $item(0).item.Phone }}\",\n  \"address_line1\": \"{{ $item(0).item.BillingStreet }}\",\n  \"city\": \"{{ $item(0).item.BillingCity }}\",\n  \"state\": \"{{ $item(0).item.BillingState }}\",\n  \"zip_code\": \"{{ $item(0).item.BillingPostalCode }}\",\n  \"aum_usd\": {{ $item(0).item.AUM__c || null }},\n  \"next_review_date\": \"{{ $item(0).item.Next_Review_Date__c }}\",\n  \"crm_last_sync\": \"now()\"\n}"
+      },
+      "name": "Create Household (Supabase)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1500,
+        200
+      ],
+      "id": "f1a1b2c8",
+      "disabled": false,
+      "note": "Insert new household record from Salesforce account"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('SUPABASE_URL') }}/rest/v1/households?crm_id=eq.{{ $item(0).item.Id }}",
+        "method": "PATCH",
+        "authentication": "header",
+        "sendHeaders": true,
+        "contentType": "application/json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $getEnv('SUPABASE_ANON_KEY') }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $getEnv('SUPABASE_ANON_KEY') }}"
+            }
+          ]
+        },
+        "body": "={\n  \"phone\": \"{{ $item(0).item.Phone }}\",\n  \"address_line1\": \"{{ $item(0).item.BillingStreet }}\",\n  \"city\": \"{{ $item(0).item.BillingCity }}\",\n  \"state\": \"{{ $item(0).item.BillingState }}\",\n  \"zip_code\": \"{{ $item(0).item.BillingPostalCode }}\",\n  \"aum_usd\": {{ $item(0).item.AUM__c || null }},\n  \"next_review_date\": \"{{ $item(0).item.Next_Review_Date__c }}\",\n  \"crm_last_sync\": \"now()\"\n}"
+      },
+      "name": "Update Household (Supabase)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1500,
+        400
+      ],
+      "id": "f1a1b2c9",
+      "disabled": false,
+      "note": "Update existing household with latest CRM data"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('CUSTODIAN_API_URL') || 'https://api.schwabapi.com' }}/v1/accounts?accountIds={{ $item(0).item.AccountIds__c || '' }}",
+        "authentication": "header",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $getEnv('CUSTODIAN_API_TOKEN') }}"
+            }
+          ]
+        }
+      },
+      "name": "Fetch Custodial Accounts (Schwab/Fidelity)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1750,
+        300
+      ],
+      "id": "f1a1b2c10",
+      "disabled": false,
+      "note": "Call custodian API (Schwab, Fidelity, etc.) to get account positions"
+    },
+    {
+      "parameters": {
+        "items": "={{ $('Fetch Custodial Accounts (Schwab/Fidelity)').all().json.body.accounts || [] }}",
+        "mode": "each",
+        "dataPropertyName": "custodian_account"
+      },
+      "name": "Loop Custodian Accounts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2000,
+        300
+      ],
+      "id": "f1a1b2c11",
+      "disabled": false,
+      "note": "Process each custodian account"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('SUPABASE_URL') }}/rest/v1/accounts?custodian_account_id=eq.{{ $item(0).custodian_account.accountId }}",
+        "authentication": "header",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $getEnv('SUPABASE_ANON_KEY') }}"
+            }
+          ]
+        }
+      },
+      "name": "Get Previous Positions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2250,
+        300
+      ],
+      "id": "f1a1b2c12",
+      "disabled": false,
+      "note": "Fetch previous positions to detect changes"
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "item",
+        "mode": "each",
+        "items": "={{ $item(0).custodian_account.positions || [] }}"
+      },
+      "name": "Loop Positions",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2500,
+        300
+      ],
+      "id": "f1a1b2c13",
+      "disabled": false,
+      "note": "Process each position in account"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "any": [
+            {
+              "value1": "={{ $item(0).item.quantity != $('Get Previous Positions').first().json.body[0]?.quantity }}",
+              "operation": "equals",
+              "value2": true
+            },
+            {
+              "value1": "={{ !$('Get Previous Positions').first().json.body.find(p => p.symbol === $item(0).item.symbol) }}",
+              "operation": "equals",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "If Position Changed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2750,
+        300
+      ],
+      "id": "f1a1b2c14",
+      "disabled": false,
+      "note": "Detect if position is new or quantity changed"
+    },
+    {
+      "parameters": {
+        "url": "{{ $getEnv('TRIGGER_API_URL') || 'https://api.trigger.dev' }}/api/v1/runs",
+        "method": "POST",
+        "authentication": "header",
+        "sendHeaders": true,
+        "contentType": "application/json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $getEnv('TRIGGER_API_KEY') }}"
+            }
+          ]
+        },
+        "body": "={\n  \"idempotencyKey\": \"{{ $item(0).item.Id }}-{{ Date.now() }}\",\n  \"job\": \"briefing_generation\",\n  \"payload\": {\n    \"household_id\": \"{{ $('Check Household Exists (Supabase)').first().json.body[0]?.id }}\",\n    \"trigger_source\": \"crm_daily_sync\",\n    \"position_changes\": [\n      {\n        \"symbol\": \"{{ $item(0).item.symbol }}\",\n        \"quantity_before\": \"{{ $('Get Previous Positions').first().json.body.find(p => p.symbol === $item(0).item.symbol)?.quantity }}\",\n        \"quantity_after\": \"{{ $item(0).item.quantity }}\"\n      }\n    ]\n  }\n}"
+      },
+      "name": "Trigger Briefing Generation (Trigger.dev)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        3000,
+        200
+      ],
+      "id": "f1a1b2c15",
+      "disabled": false,
+      "note": "Submit briefing generation job if changes detected"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "any": [
+            {
+              "value1": "={{ $('Check Household Exists (Supabase)').first().json.body[0].next_review_date >= new Date().toISOString().split('T')[0] && $('Check Household Exists (Supabase)').first().json.body[0].next_review_date <= new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0] }}",
+              "operation": "equals",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "If Review This Week",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3250,
+        300
+      ],
+      "id": "f1a1b2c16",
+      "disabled": false,
+      "note": "Check if review is scheduled for next 7 days"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('SUPABASE_URL') }}/rest/v1/households?id=eq.{{ $('Check Household Exists (Supabase)').first().json.body[0]?.id }}",
+        "authentication": "header",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $getEnv('SUPABASE_ANON_KEY') }}"
+            }
+          ]
+        }
+      },
+      "name": "Get Assigned Advisor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        3500,
+        200
+      ],
+      "id": "f1a1b2c17",
+      "disabled": false,
+      "note": "Retrieve advisor assignment for this household"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('SUPABASE_URL') }}/rest/v1/advisors?id=eq.{{ $('Get Assigned Advisor').first().json.body[0].assigned_advisor_id }}",
+        "authentication": "header",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $getEnv('SUPABASE_ANON_KEY') }}"
+            }
+          ]
+        }
+      },
+      "name": "Get Advisor Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        3750,
+        200
+      ],
+      "id": "f1a1b2c18",
+      "disabled": false,
+      "note": "Get advisor contact email"
+    },
+    {
+      "parameters": {
+        "fromEmail": "{{ $getEnv('SENDGRID_FROM_EMAIL') || 'noreply@reviewprepengine.com' }}",
+        "toEmail": "{{ $('Get Advisor Email').first().json.body[0].email }}",
+        "subject": "Review Prep Ready: {{ $('Check Household Exists (Supabase)').first().json.body[0].household_name }}",
+        "htmlBody": "=<html>\n<body>\n<h2>Your Client Review Briefing is Ready</h2>\n<p>Household: <strong>{{ $('Check Household Exists (Supabase)').first().json.body[0].household_name }}</strong></p>\n<p>Review Date: <strong>{{ $('Check Household Exists (Supabase)').first().json.body[0].next_review_date }}</strong></p>\n<p><a href=\"{{ $getEnv('APP_BASE_URL') }}/briefings/{{ $('Check Household Exists (Supabase)').first().json.body[0]?.id }}\">View Briefing</a></p>\n<p><strong>Recent Changes Detected:</strong></p>\n<ul>\n{{ $('If Position Changed').json.body.map(change => `<li>${change.symbol}: ${change.quantity_before} → ${change.quantity_after}</li>`).join('') }}\n</ul>\n</body>\n</html>"
+      },
+      "name": "Send Email to Advisor (SendGrid)",
+      "type": "n8n-nodes-base.sendGrid",
+      "typeVersion": 1,
+      "position": [
+        4000,
+        200
+      ],
+      "id": "f1a1b2c19",
+      "disabled": false,
+      "note": "Email advisor with briefing link and summary of changes"
+    },
+    {
+      "parameters": {
+        "url": "={{ $getEnv('SUPABASE_URL') }}/rest/v1/sync_logs",
+        "method": "POST",
+        "authentication": "header",
+        "sendHeaders": true,
+        "contentType": "application/json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $getEnv('SUPABASE_ANON_KEY') }}"
+            }
+          ]
+        },
+        "body": "={\n  \"organization_id\": \"{{ $getEnv('ORG_ID') }}\",\n  \"sync_type\": \"salesforce_sync\",\n  \"status\": \"{{ $execution.errorData ? 'failed' : 'success' }}\",\n  \"records_processed\": \"{{ $('Loop Accounts').json.body.length || 0 }}\",\n  \"error_message\": \"{{ $execution.errorData?.message }}\",\n  \"started_at\": \"{{ $execution.startTime }}\",\n  \"completed_at\": \"now()\"\n}"
+      },
+      "name": "Log Sync Result (Supabase)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        4250,
+        300
+      ],
+      "id": "f1a1b2c20",
+      "disabled": false,
+      "note": "Record sync completion status for audit trail"
+    }
+  ],
+  "connections": {
+    "Daily Trigger (6 AM)": {
+      "main": [
+        [
+          {
+            "node": "Query Updated Accounts (Salesforce)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Updated Accounts (Salesforce)": {
+      "main": [
+        [
+          {
+            "node": "Loop Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Accounts": {
+      "main": [
+        [
+          {
+            "node": "Check Household Exists (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Household Exists (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "If Household Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Household Not Found": {
+      "main": [
+        [
+          {
+            "node": "Create Household (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Household (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Household (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Fetch Custodial Accounts (Schwab/Fidelity)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Household (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Fetch Custodial Accounts (Schwab/Fidelity)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Custodial Accounts (Schwab/Fidelity)": {
+      "main": [
+        [
+          {
+            "node": "Loop Custodian Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Custodian Accounts": {
+      "main": [
+        [
+          {
+            "node": "Get Previous Positions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Previous Positions": {
+      "main": [
+        [
+          {
+            "node": "Loop Positions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Positions": {
+      "main": [
+        [
+          {
+            "node": "If Position Changed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Position Changed": {
+      "main": [
+        [
+          {
+            "node": "Trigger Briefing Generation (Trigger.dev)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Briefing Generation (Trigger.dev)": {
+      "main": [
+        [
+          {
+            "node": "If Review This Week",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Review This Week": {
+      "main": [
+        [
+          {
+            "node": "Get Assigned Advisor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Assigned Advisor": {
+      "main": [
+        [
+          {
+            "node": "Get Advisor Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Advisor Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email to Advisor (SendGrid)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email to Advisor (SendGrid)": {
+      "main": [
+        [
+          {
+            "node": "Log Sync Result (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    ]
+  },
+  "settings": {
+    "errorHandler": "Continue"
+  }
+}

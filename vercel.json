@@ -1,0 +1,89 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "name": "review-prep-engine",
+  "regions": ["iad"],
+  "env": {
+    "SUPABASE_URL": {
+      "description": "Supabase project URL"
+    },
+    "SUPABASE_ANON_KEY": {
+      "description": "Supabase anonymous key"
+    },
+    "SUPABASE_SERVICE_ROLE_KEY": {
+      "description": "Supabase service role key (server-only)"
+    },
+    "N8N_URL": {
+      "description": "n8n instance URL"
+    },
+    "SALESFORCE_CLIENT_ID": {
+      "description": "Salesforce OAuth client ID"
+    },
+    "SALESFORCE_CLIENT_SECRET": {
+      "description": "Salesforce OAuth client secret"
+    },
+    "CUSTODIAN_API_URL": {
+      "description": "Custodian API base URL (Schwab, Fidelity, etc.)"
+    },
+    "CUSTODIAN_API_TOKEN": {
+      "description": "Custodian API authentication token"
+    },
+    "TRIGGER_API_KEY": {
+      "description": "Trigger.dev API key"
+    },
+    "TRIGGER_API_URL": {
+      "description": "Trigger.dev API URL"
+    },
+    "SENDGRID_API_KEY": {
+      "description": "SendGrid API key"
+    },
+    "SENDGRID_FROM_EMAIL": {
+      "description": "Sender email address for notifications"
+    },
+    "SENDGRID_REVIEW_REMINDER_TEMPLATE_ID": {
+      "description": "SendGrid template ID for review reminders"
+    },
+    "ORG_ID": {
+      "description": "Organization ID for this deployment"
+    },
+    "APP_BASE_URL": {
+      "description": "Base URL for application links in emails"
+    },
+    "OPS_EMAIL": {
+      "description": "Operations team email for alerts"
+    }
+  },
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "nextjs",
+  "functions": {
+    "api/**/*.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/docs",
+      "destination": "https://docs.reviewprepengine.com",
+      "statusCode": 307
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/.*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    }
+  ]
+}

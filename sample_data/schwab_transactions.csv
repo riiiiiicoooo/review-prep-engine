@@ -1,0 +1,30 @@
+AccountNumber,TransactionType,TransactionDate,Amount,Description
+ACCT-001,Deposit,2026-02-15,$50000,Client contribution
+ACCT-001,Dividend,2026-02-01,$1245,Dividend income
+ACCT-001,Fee,2026-02-28,-$125,Annual advisory fee
+ACCT-002,Transfer,2026-01-15,$75000,Rollover from 401k
+ACCT-002,Dividend,2026-02-10,$856,Dividend income
+ACCT-003,Deposit,2026-01-01,$7000,Annual IRA contribution
+ACCT-003,Dividend,2026-02-05,$542,Dividend income
+ACCT-004,Deposit,2026-01-20,$45000,Rollover from 403b
+ACCT-005,Dividend,2026-02-12,$2150,Dividend income
+ACCT-005,Interest,2026-02-15,$380,Bond interest
+ACCT-006,Deposit,2026-02-01,$25000,Client contribution
+ACCT-006,Fee,2026-02-28,-$85,Annual advisory fee
+ACCT-007,Deposit,2025-12-15,$7000,Annual IRA contribution
+ACCT-007,Dividend,2026-02-03,$421,Dividend income
+ACCT-008,Dividend,2026-02-10,$1856,Dividend income
+ACCT-008,Interest,2026-02-15,$625,Bond interest
+ACCT-008,Fee,2026-02-28,-$200,Annual advisory fee
+ACCT-009,Dividend,2026-02-08,$1125,Dividend income
+ACCT-010,Withdrawal,2026-01-10,-$15000,Living expenses
+ACCT-010,Dividend,2026-02-05,$456,Dividend income
+ACCT-011,Dividend,2026-02-04,$285,Dividend income
+ACCT-012,Deposit,2025-12-01,$5000,Annual UTMA contribution
+ACCT-012,Dividend,2026-02-02,$342,Dividend income
+ACCT-013,Deposit,2026-01-15,$10000,Annual 529 contribution
+ACCT-013,Dividend,2026-02-06,$198,Dividend income
+ACCT-014,Dividend,2026-02-11,$2856,Dividend income
+ACCT-014,Interest,2026-02-15,$950,Bond interest
+ACCT-015,Deposit,2026-02-20,$30000,Client contribution
+ACCT-015,Dividend,2026-02-07,$512,Dividend income

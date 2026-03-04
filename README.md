@@ -60,6 +60,35 @@ A review briefing engine that assembles everything an advisor needs into a singl
 
 ---
 
+## Engagement & Budget
+
+### Team & Timeline
+
+| Role | Allocation | Duration |
+|------|-----------|----------|
+| Lead PM (Jacob) | 15 hrs/week | 10 weeks |
+| Lead Developer (US) | 35 hrs/week | 10 weeks |
+| Offshore Developer(s) | 1 × 30 hrs/week | 10 weeks |
+| QA Engineer | 10 hrs/week | 10 weeks |
+
+**Timeline:** 10 weeks total across 3 phases
+- **Phase 1: Discovery & Design** (2 weeks) — Paraplanner workflow mapping, data source inventory (custodian, CRM, planning tools, email), briefing template design
+- **Phase 2: Core Build** (6 weeks) — Data aggregation pipeline, engagement scoring model, briefing generator, action item tracking, at-risk client detection
+- **Phase 3: Integration & Launch** (2 weeks) — Custodian API integration, advisor pilot testing, template refinement, paraplanner training
+
+### Budget Summary
+
+| Category | Cost | Notes |
+|----------|------|-------|
+| PM & Strategy | $27,750 | Discovery, specs, stakeholder management |
+| Development (Lead + Offshore) | $72,150 | Core platform build |
+| AI/LLM Token Budget | $1,200/month | Claude Haiku for briefing assembly and engagement scoring ~1.5M tokens/month |
+| Infrastructure | $2,300/month | Supabase Pro, n8n, Trigger.dev, Vercel, React Email/Resend, misc |
+| **Total Engagement** | **$105,000** | Fixed-price, phases billed at milestones |
+| **Ongoing Run Rate** | **$500/month** | Infrastructure + AI tokens + 2hrs support |
+
+---
+
 ## Client Context
 
 **Firm profile:**

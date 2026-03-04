@@ -288,9 +288,43 @@ The Review Prep Engine now includes production-ready infrastructure for enterpri
 
 ---
 
-## What This Demonstrates
+## PM Perspective
 
-- **Understanding a domain deeply enough to identify non-obvious automation** — review prep isn't a "product" anyone would think to build. It's an operational bottleneck that firms accept as the cost of doing business. Quantifying it (150 hours/quarter, $22k) makes the case.
-- **Designing for the actual workflow** — the tool doesn't replace the paraplanner, it changes their job from assembly to review. That's important for adoption. Nobody loses their job; everyone's work gets better.
-- **Multi-source data aggregation** — the core product challenge is normalizing data from 4 different systems with different schemas, update frequencies, and reliability levels into a single coherent view.
-- **Engagement scoring as a retention tool** — this wasn't in the original scope. We added it after noticing the firm had lost 3 clients in Q4 with no warning. The data to predict attrition was there; nobody was looking at it.
+Hardest decision: Whether to build a single monolithic briefing template or persona-specific views. The lead advisor wanted one comprehensive document. The junior advisors wanted a simpler version. Built a modular briefing system — a core data model with configurable views. Senior advisors see the full financial picture with alternative scenario analysis; junior advisors see a streamlined version with talking points and action items. Added a week to the build but meant every advisor actually used it.
+
+Surprise: The engagement scoring model revealed something the firm didn't expect — their "best" clients (highest AUM) were actually the most at-risk. These clients hadn't attended a review in 2+ quarters and had declining communication frequency. The firm assumed high AUM meant loyalty, but the data showed the opposite: these clients were being courted by competitors and the firm was too focused on acquisition to notice. Flagging 8 at-risk clients in Q1 (representing $48M in AUM) got the managing partner's attention immediately.
+
+Do differently: Would have spent more time on the custodian API integration. We underestimated how inconsistent custodian data formats are — Schwab, Fidelity, and Pershing all return portfolio data in slightly different schemas. Spent 2 weeks of Phase 3 on data normalization that should have been scoped in Phase 1. The lesson: always prototype the data integrations before committing to a timeline.
+
+---
+
+## Business Context
+
+**Market:** ~13,000 RIA firms in the US managing $100M-$5B in assets. Firms conducting quarterly client reviews spend an average of 4-6 hours per client on preparation across 200-500 client relationships.
+
+**Unit Economics:**
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Paraplanner time per quarter | 150 hours | 45 hours |
+| Annual paraplanner cost | $62,500/year | $18,750/year |
+| Annual labor savings | — | $43,750 |
+| At-risk AUM identified | — | $48M (Q1) |
+| Platform cost (build) | — | $105,000 |
+| Platform cost (monthly) | — | $500 |
+| Payback period | — | 10 months |
+| 3-year ROI | — | 4x |
+
+**Pricing:** If productized for RIAs, $500-1,500/month based on client count, targeting $3-5M ARR at 400 firms.
+
+---
+
+## About This Project
+
+This was built for a 12-person registered investment advisory firm (~$380M AUM) where paraplanners were spending 150+ hours per quarter manually assembling client review briefings.
+
+**Role & Leadership:**
+- Led discovery with advisors and paraplanners to map the review preparation workflow end-to-end
+- Designed the data aggregation pipeline connecting custodian, CRM, planning tools, and email
+- Made technology decisions on engagement scoring model and at-risk client detection
+- Established metrics framework tracking prep time reduction, advisor satisfaction, and action item follow-through rates

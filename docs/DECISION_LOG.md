@@ -505,6 +505,71 @@ tracker.status_history = [
 
 ---
 
+### 13. Pivot from Manual Data Entry to Automated CRM/Portfolio Ingestion
+
+**Decision:** Switched from requiring advisors to manually input client data into the review prep system to automated ingestion from CRM and portfolio systems via n8n workflows.
+
+**Context:**
+Original MVP required advisors to manually update client household data before running the briefing generator. The system presented a form: "Enter AUM, account numbers, goals, life events." The idea was that advisors would spend 15 minutes before each review updating the system.
+
+**What Happened:**
+Adoption was near zero in the first pilot. Advisors reported: "I'm already managing this in Salesforce and Schwab. I'm not typing it into another system."
+
+The firm's advisor workflow already had the data they needed:
+- Household composition: in Salesforce CRM
+- AUM and positions: in Schwab (advisor's custodian)
+- Financial goals: in Morningstar (their planning software)
+- Client events: in Salesforce notes and email trail
+
+Asking advisors to re-enter this data was adding friction to their workflow, not reducing it.
+
+**Decision:**
+Implemented automated ingestion pipelines via n8n (workflow automation platform). Three workflows pull data:
+
+1. **Salesforce workflow:** Exports household contacts, recent interactions, notes
+2. **Schwab workflow:** Exports account positions, asset allocation, performance
+3. **Morningstar workflow:** Exports financial goals, plan status, funding %
+
+Workflows run weekly (Monday morning, before reviews). Data merges into the briefing engine automatically.
+
+**Rationale:**
+
+1. **Eliminates manual data entry:** Prep time dropped from 45 minutes (manual entry + review) to 12 minutes (just QA-check auto-populated briefing).
+
+2. **Single source of truth:** Data comes directly from systems-of-record (Salesforce, Schwab, Morningstar), not from advisor memory.
+
+3. **Reduced errors:** Manual entry = typos, missing fields. Automated import is consistent.
+
+4. **Scalability:** Adding new households is automatic (they appear when added to Salesforce). No per-household setup needed.
+
+**Implementation:**
+- n8n workflows (3 integrations, ~4 weeks dev)
+- Conflict resolution logic: if Salesforce has newer household data than Morningstar, Salesforce wins
+- Fallback: if import fails, system alerts paraplanner to manually upload CSV
+- Data validation: checks that imported data is complete before generating briefing
+
+**Consequences:**
+
+**Short-term:**
+- Required n8n setup and maintenance (minimal ops)
+- First import required credential setup (Salesforce API, Schwab API access)
+- Data mapping took 2 weeks (Salesforce field names ≠ our field names)
+
+**Long-term:**
+- Reduced manual data management
+- More up-to-date briefings (portfolio data is 1 day old vs. advisor's manual entry which was weeks old)
+- Increased advisor satisfaction: "the system just works, I don't have to do anything"
+
+**Adoption Impact:**
+- Pre-automation: adoption 8% (advisors avoided the system because manual entry was burdensome)
+- Post-automation: adoption 87% (advisors used the system weekly because it saved time instead of adding work)
+
+**Lesson:**
+
+Don't ask users to enter data that exists elsewhere. Integrate with their existing systems instead. This single shift from manual entry to automated ingestion went from a rejected feature (adoption 8%) to a core part of the workflow (adoption 87%).
+
+---
+
 ## Decisions We're Confident About
 
 ✅ **Delta-based briefings** — Matches advisor mental model perfectly

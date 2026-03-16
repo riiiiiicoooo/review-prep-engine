@@ -31,6 +31,7 @@ from datetime import date, datetime, timedelta
 from typing import Optional, List
 from pathlib import Path
 import sys
+import logging
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -43,6 +44,9 @@ from src.client_profiler import (
 from src.review_assembler import ReviewAssembler
 from src.engagement_scorer import EngagementScorer
 from storage.json_store import JSONStore
+from src import db
+
+logger = logging.getLogger(__name__)
 
 # Initialize app
 app = FastAPI(
@@ -217,14 +221,28 @@ async def startup_event():
     """Load data on startup."""
     load_sample_data()
 
+    # Check database connectivity
+    if db.check_database():
+        logger.info("Database ready")
+    else:
+        logger.warning("Database not available; will continue with in-memory storage")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    await db.shutdown()
+
 
 @app.get("/health")
 async def health():
     """Health check endpoint."""
+    db_ok = db.check_database()
     return {
         "status": "healthy",
         "households": len(client_book.list_all()),
         "total_aum": f"${client_book.total_aum:,.0f}",
+        "database": "ready" if db_ok else "unavailable",
     }
 
 
@@ -232,8 +250,10 @@ async def health():
 async def list_households(
     advisor: Optional[str] = Query(None, description="Filter by advisor name"),
     tier: Optional[str] = Query(None, description="Filter by service tier (platinum, gold, silver)"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=1000, description="Number of records to return (max 1000)"),
 ):
-    """List all households with summary data and engagement scores."""
+    """List households with summary data and engagement scores (paginated)."""
 
     households = client_book.list_all()
 
@@ -250,9 +270,13 @@ async def list_households(
     for report in scorer.score_book(client_book):
         engagement_reports[report.household_id] = report
 
+    # Apply pagination before building response
+    total_households = len(households)
+    households_page = households[skip : skip + limit]
+
     # Build response summaries
     summaries = []
-    for hh in households:
+    for hh in households_page:
         engagement = engagement_reports.get(hh.id)
         summary = HouseholdSummary(
             id=hh.id,
@@ -271,7 +295,7 @@ async def list_households(
         summaries.append(summary)
 
     return HouseholdListResponse(
-        total_households=len(summaries),
+        total_households=total_households,
         total_aum=client_book.total_aum,
         by_tier={
             "platinum": len([h for h in summaries if h.service_tier == "platinum"]),
@@ -359,8 +383,12 @@ async def get_briefing(household_id: str):
 
 
 @app.get("/households/{household_id}/action-items", response_model=List[ActionItemResponse])
-async def get_action_items(household_id: str):
-    """List open action items for a household."""
+async def get_action_items(
+    household_id: str,
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Number of records to return (max 1000)"),
+):
+    """List open action items for a household (paginated)."""
 
     household = get_household_or_404(household_id)
 
@@ -381,7 +409,9 @@ async def get_action_items(household_id: str):
                 notes=ai.notes,
             ))
 
-    return items
+    # Apply pagination
+    items_page = items[skip : skip + limit]
+    return items_page
 
 
 @app.post("/households/{household_id}/action-items/{item_id}/update")
@@ -434,8 +464,10 @@ async def update_action_item(
 @app.get("/dashboard/upcoming-reviews", response_model=DashboardResponse)
 async def get_upcoming_reviews(
     within_days: int = Query(14, description="Days ahead to look for upcoming reviews"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=1000, description="Number of records to return (max 1000)"),
 ):
-    """Get briefings due within N days."""
+    """Get briefings due within N days (paginated)."""
 
     due_households = client_book.list_reviews_due(within_days)
     overdue_households = client_book.list_overdue_reviews()
@@ -449,7 +481,7 @@ async def get_upcoming_reviews(
         engagement_reports[report.household_id] = report
 
     # Assemble briefings
-    cards = []
+    all_cards = []
     total_high_flags = 0
     total_medium_flags = 0
     total_aum_at_risk = 0
@@ -477,14 +509,17 @@ async def get_upcoming_reviews(
             medium_flags=briefing.medium_priority_count,
             status=briefing.status.value,
         )
-        cards.append(card)
+        all_cards.append(card)
+
+    # Apply pagination
+    cards_page = all_cards[skip : skip + limit]
 
     return DashboardResponse(
-        upcoming_count=len(cards),
+        upcoming_count=len(all_cards),
         high_priority_flags=total_high_flags,
         medium_priority_flags=total_medium_flags,
         total_aum_at_risk=total_aum_at_risk,
-        briefings=cards,
+        briefings=cards_page,
     )
 
 
